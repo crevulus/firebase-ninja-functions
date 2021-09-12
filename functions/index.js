@@ -38,7 +38,7 @@ exports.addRequest = functions.https.onCall((data, context) => {
   });
 });
 
-exports.upvoteRequest = functions.https.onCall((data, context) => {
+exports.upvoteRequest = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new functions.https.httpsErrorInstance(
       "unauthenticated",
@@ -48,21 +48,37 @@ exports.upvoteRequest = functions.https.onCall((data, context) => {
   // get references for two docs: user and request
   const user = admin.firestore().collection("users").doc(context.auth.uid);
   const request = admin.firestore().collection("requests").doc(data.id); // we will pass the id of the tut req when we call the fn
-  return user.get().then((doc) => {
-    // check user hasn't already upvoted this request
-    if (doc.data().upvotedOn.includes(data.id)) {
-      throw new functions.https.httpsErrorInstance(
-        "failed-precondition",
-        "Can only upvote something once."
-      );
-    }
-    // update upvotedOn array
-    user.update({
-      upvotedOn: [...doc.data().upvotedOn, data.id],
-    });
-    request.update({
-      upvotes: admin.firestore.FieldValue.increment(1),
-    });
-    return;
+  const doc = await user.get();
+  // check user hasn't already upvoted this request
+  if (doc.data().upvotedOn.includes(data.id)) {
+    throw new functions.https.httpsErrorInstance(
+      "failed-precondition",
+      "Can only upvote something once."
+    );
+  }
+  // update upvotedOn array
+  await user.update({
+    upvotedOn: [...doc.data().upvotedOn, data.id],
+  });
+  // final awaited fn completes the return
+  return request.update({
+    upvotes: admin.firestore.FieldValue.increment(1),
   });
 });
+
+// curly braces = dynamic variables/wildcard
+exports.logActivities = functions.firestore
+  .document("/{collection}/{id}")
+  .onCreate((snapshot, context) => {
+    // snapshot = the created document
+    const collection = context.params.collection; // context.params = the wildcards we pass in the document method above
+    const id = context.params.id;
+    const activities = admin.firestore().collection("activities");
+    if (collection === "users") {
+      return activities.add({ text: "a new user signed up" });
+    }
+    if (collection === "requests") {
+      return activities.add({ text: "a new tutorial request was added" });
+    }
+    return null;
+  });
