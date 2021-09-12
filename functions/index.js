@@ -1,5 +1,6 @@
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
+// using admin sdk allows us access to cloud cuntions as it has secutiry permissions
 admin.initializeApp();
 
 exports.handleNewUserSignUp = functions.auth.user().onCreate((user) => {
