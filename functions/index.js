@@ -1,19 +1,38 @@
-const functions = require('firebase-functions');
+const functions = require("firebase-functions");
+const admin = require("firebase-admin");
+admin.initializeApp();
 
-// http request 1
-exports.randomNumber = functions.https.onRequest((request, response) => {
-  const number = Math.round(Math.random() * 100);
-  console.log(number);
-  response.send(number.toString());
+exports.handleNewUserSignUp = functions.auth.user().onCreate((user) => {
+  // Must return a promise or a value. This returns a promise.
+  return admin.firestore().collection("users").doc(user.uid).set({
+    email: user.email,
+    upvotedOn: [],
+  }); // Will create document with the uid if the user doesn't exist yet
 });
 
-// http request 2
-exports.toTheDojo = functions.https.onRequest((request, response) => {
-  response.redirect('https://www.thenetninja.co.uk');
+exports.handleUserDeleted = functions.auth.user().onDelete((user) => {
+  return admin.firestore().collection("users").doc(user.uid).delete();
 });
 
-// http callable function
-exports.sayHello = functions.https.onCall((data, context) => {
-  const name = data.name;
-  return `hello ${name} :)`;
+exports.addRequest = functions.https.onCall((data, context) => {
+  const text = data.text;
+  // hass access to whether or not user is logged in
+  if (!context.auth) {
+    // fb has a series of error codes to pass in as first arg; second arg is to show on front end
+    throw new functions.https.httpsErrorInstance(
+      "unauthenticated",
+      "Only authenticated users can add requests!"
+    );
+  }
+  // we're passing in a text property on the object we pass in when we call the fn
+  if (text.length > 30) {
+    throw new functions.https.httpsErrorInstance(
+      "invalid-argument",
+      "Request must be equal to or fewer than 30 characters"
+    );
+  }
+  return admin.firestore().collection("requests").add({
+    text,
+    upvotes: 0,
+  });
 });

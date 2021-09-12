@@ -1,25 +1,30 @@
-const requestModal = document.querySelector('.new-request');
-const requestLink = document.querySelector('.add-request');
+const requestModal = document.querySelector(".new-request");
+const requestLink = document.querySelector(".add-request");
+const requestForm = document.querySelector(".new-request form");
 
 // open request modal
-requestLink.addEventListener('click', () => {
-  requestModal.classList.add('open');
+requestLink.addEventListener("click", () => {
+  requestModal.classList.add("open");
 });
 
 // close request modal
-requestModal.addEventListener('click', (e) => {
-  if (e.target.classList.contains('new-request')) {
-    requestModal.classList.remove('open');
+requestModal.addEventListener("click", (event) => {
+  if (event.target.classList.contains("new-request")) {
+    requestModal.classList.remove("open");
   }
 });
 
-// say hello function call
-const button = document.querySelector('.call');
-button.addEventListener('click', () => {
-// get function reference
-  const sayHello = firebase.functions().httpsCallable('sayHello');
-  // call the function and pass data
-  sayHello({ name: 'Shaun' }).then(result => {
-    console.log(result.data);
-  });
+requestForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const addRequest = firebase.functions().httpsCallable("addRequest");
+  // "request" is the name of the input field in this form
+  addRequest({ text: requestForm.request.value })
+    .then(() => {
+      requestForm.reset();
+      requestModal.classList.remove("open");
+      requestForm.querySelector(".error").textContent = "";
+    })
+    .catch((error) => {
+      requestForm.querySelector(".error").textContent = error.message;
+    });
 });
